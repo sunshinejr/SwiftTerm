@@ -123,10 +123,8 @@ struct UnicodeUtil {
     private static let twoColumnEmoji: [LH] = [
         // ⌚, ⌛
         LH (lo: 0x231a, hi: 0x231b),
-        // assorted playback
-        LH (lo: 0x23e9, hi: 0x23f0),
-        // ⏳
-        LH (lo: 0x23f3, hi: 0x23f3),
+        // assorted playback (includes ⏸⏹⏺)
+        LH (lo: 0x23e9, hi: 0x23fa),
         // Ⓜ
         LH (lo: 0x24c2, hi: 0x24c2),
         // ◽, ◾

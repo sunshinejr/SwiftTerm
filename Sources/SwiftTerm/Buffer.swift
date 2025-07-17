@@ -1084,6 +1084,9 @@ public final class Buffer {
         let bufferRow = _lines[_y+_yBase]
         var empty = CharData.Null
         empty.attribute = curAttr
+        
+        // For wide character placeholders, use default attributes to avoid background color issues
+        var widePlaceholder = CharData.Null
         // insert mode: move characters to right
         if insertMode {
             // right shift cells according to the width
@@ -1111,7 +1114,7 @@ public final class Buffer {
         if chWidth > 0 {
             chWidth -= 1
             while chWidth != 0 && _x < _cols {
-                bufferRow [_x] = empty
+                bufferRow [_x] = widePlaceholder
                 _x += 1
                 chWidth -= 1
             }
