@@ -320,4 +320,16 @@ struct UnicodeUtil {
               (irune >= 0x30000 && irune <= 0x3fffd)) ||
               bisearch(rune: irune, table: twoColumnEmoji, max: twoColumnEmoji.count-1) != 0) ? 1 : 0)
     }
+
+    /// Computes the column width for a full Swift `Character` taking into account
+    /// all the contained Unicode scalars.
+    /// - Parameter character: The character to measure
+    /// - Returns: The number of columns required to display `character` on screen.
+    static func columnWidth (character: Character) -> Int {
+        var width = 0
+        for scalar in String(character).unicodeScalars {
+            width = max (width, columnWidth (rune: scalar))
+        }
+        return width
+    }
 }
