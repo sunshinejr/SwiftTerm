@@ -6,8 +6,9 @@
 //
 //  Created by Miguel de Icaza on 4/5/20.
 //
-#if !os(iOS)
+#if os(macOS)
 import Foundation
+import Dispatch
 
 /// Delegate that is invoked by the ``LocalProcess`` class in response to various
 /// process-related events.

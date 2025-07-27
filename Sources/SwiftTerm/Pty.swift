@@ -96,7 +96,7 @@ public class PseudoTerminalHelpers {
      */
     public static func setWinSize (masterPtyDescriptor: Int32, windowSize: inout winsize) -> Int32
     {
-        return ioctl(masterPtyDescriptor, TIOCSWINSZ, &windowSize)
+        return ioctl(masterPtyDescriptor, UInt(TIOCSWINSZ), &windowSize)
     }
     
     /**
@@ -105,7 +105,7 @@ public class PseudoTerminalHelpers {
     public static func availableBytes (fd: Int32) -> (status: Int32, size: Int32)
     {
         var size: Int32 = 0
-        let status = ioctl (fd, 0x4004667f /* FIONREAD */, &size)
+        let status = ioctl (fd, UInt(0x4004667f) /* FIONREAD */, &size)
         return (status, size)
     }
 }

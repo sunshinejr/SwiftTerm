@@ -1,6 +1,6 @@
 import XCTest
 
-#if !canImport(ObjectiveC)
+#if os(macOS)
 public func allTests() -> [XCTestCaseEntry] {
     return [
         testCase(SwiftTermTests.allTests),

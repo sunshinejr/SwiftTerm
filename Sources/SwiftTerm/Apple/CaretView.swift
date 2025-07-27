@@ -6,6 +6,8 @@
 //
 
 import Foundation
+
+#if os(iOS) || os(macOS) || os(visionOS)
 import CoreText
 
 extension CaretView {
@@ -66,3 +68,4 @@ extension CaretView {
         context.restoreGState()
     }
 }
+#endif
