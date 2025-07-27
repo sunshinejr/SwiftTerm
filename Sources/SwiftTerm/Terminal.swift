@@ -1128,107 +1128,93 @@ open class Terminal {
         readingBuffer.prepare(data)
 
         updateRange (buffer.y)
+        var pendingChar: Character?
+        var pendingWidth: Int = 0
+
+        func flushPending() {
+            guard let p = pendingChar else { return }
+
+            if let firstScalar = p.unicodeScalars.first,
+               firstScalar.properties.canonicalCombiningClass != .notReordered {
+                let last = buffer.lastBufferStorage
+                if last.cols == cols && last.rows == rows {
+                    let existingLine = buffer.lines[last.y]
+                    let lastx = last.x >= cols ? cols-1 : last.x
+                    var cd = existingLine[lastx]
+                    let newStr = String([cd.getCharacter(), p])
+                    if newStr.count == 1, let newCh = newStr.first {
+                        cd.setValue(char: newCh, size: Int32(cd.width))
+                        existingLine[lastx] = cd
+                        updateRange(last.y)
+                        pendingChar = nil
+                        return
+                    }
+                }
+            }
+
+            if p != "\u{200d}" {
+                let charData = CharData(attribute: curAttr, char: p, size: Int8(pendingWidth))
+                buffer.insertCharacter(charData)
+            }
+            pendingChar = nil
+        }
+
         while readingBuffer.hasNext() {
             var ch: Character = " "
             var chWidth: Int = 0
             let code = readingBuffer.getNext()
-            
+
             let n = UnicodeUtil.expectedSizeFromFirstByte(code)
 
             if n == -1 || n == 1 {
-                // n == -1 means an Invalid UTF-8 sequence, client sent us some junk, happens if we run
-                // with the wrong locale set for example if LANG=en, still we handle it here
-
-                // get charset replacement character
-                // charset are only defined for ASCII, therefore we only
-                // search for an replacement char if code < 127
                 if code < 127 && charset != nil {
-                    
-                    // Notice that the charset mapping can contain the dutch unicode sequence for "ij",
-                    // so it is not a simple byte, it is a Character
-                    if let str = charset! [UInt8 (code)] {
+                    if let str = charset![UInt8(code)] {
                         ch = str.first!
-                        
-                        // Every single mapping in the charset only takes one slot
                         chWidth = 1
-                        let charData = CharData (attribute: curAttr, char: ch, size: Int8 (chWidth))
-                        buffer.insertCharacter(charData)
-                        continue
+                    } else {
+                        let rune = UnicodeScalar(code)
+                        ch = Character(rune)
+                        chWidth = UnicodeUtil.columnWidth(rune: rune)
                     }
+                } else {
+                    let rune = UnicodeScalar(code)
+                    ch = Character(rune)
+                    chWidth = UnicodeUtil.columnWidth(rune: rune)
                 }
-                
-                let rune = UnicodeScalar (code)
-                chWidth = UnicodeUtil.columnWidth(rune: rune)
-                let charData = CharData (attribute: curAttr, scalar: rune, size: Int8 (chWidth))
-                buffer.insertCharacter(charData)
-                continue
             } else if readingBuffer.bytesLeft() >= (n-1) {
-                var x : [UInt8] = [code]
+                var x: [UInt8] = [code]
                 for _ in 1..<n {
-                    x.append (readingBuffer.getNext())
+                    x.append(readingBuffer.getNext())
                 }
                 x.append(0)
                 x.withUnsafeBytes { ptr in
-                    let unsafeBound = ptr.bindMemory(to: UInt8.self)
-                    let unsafePointer = unsafeBound.baseAddress!
-                    
-                    let s = String (cString: unsafePointer)
-                    ch = s.first ?? Character (" ")
-
-                    // Now the challenge is that we have a character, not a rune, and we want to compute
-                    // the width of it.
-                    if ch.unicodeScalars.count == 1 {
-                        chWidth = UnicodeUtil.columnWidth(rune: ch.unicodeScalars.first!)
-                    } else {
-                        chWidth = 0
-                        for scalar in ch.unicodeScalars {
-                            chWidth = max (chWidth, UnicodeUtil.columnWidth(rune: scalar))
-                        }
-                    }
+                    let s = String(cString: ptr.bindMemory(to: UInt8.self).baseAddress!)
+                    ch = s.first ?? Character(" ")
                 }
+                chWidth = UnicodeUtil.columnWidth(character: ch)
             } else {
-                readingBuffer.putback (code)
-                return
+                readingBuffer.putback(code)
+                break
             }
 
-            if let firstScalar = ch.unicodeScalars.first {
-                // If this is a Unicode combining character
-                if firstScalar.properties.canonicalCombiningClass != .notReordered {
-                    // Determine if the last time we poked at a character is still valid
-                    let last = buffer.lastBufferStorage
-                    if last.cols == cols && last.rows == rows {
-                        // Fetch the old character, and attempt to combine it:
-                        let existingLine = buffer.lines [last.y]
-                        let lastx = last.x >= cols ? cols-1 : last.x
-                        var cd = existingLine [lastx]
-                        
-                        // Attemp the combination
-                        let newStr = String ([cd.getCharacter (), ch])
-                        
-                        // If the resulting string is 1 grapheme cluster, then it combined properly
-                        if newStr.count == 1 {
-                            if let newCh = newStr.first {
-                                cd.setValue(char: newCh, size: Int32 (cd.width))
-                                existingLine [lastx] = cd
-                                updateRange (last.y)
-                                continue
-                            }
-                        }
-                    }
+            if let existing = pendingChar {
+                let candidate = String([existing, ch])
+                if candidate.count == 1, let combined = candidate.first {
+                    pendingChar = combined
+                    pendingWidth = UnicodeUtil.columnWidth(character: combined)
+                    continue
+                } else {
+                    flushPending()
                 }
             }
-            // The accessibility stack might not need this
-            //let screenReaderMode = options.screenReaderMode
-            //if screenReaderMode {
-            //    emitChar (ch)
-            //}
-            if ch != "\u{200d}" {
-                let charData = CharData (attribute: curAttr, char: ch, size: Int8 (chWidth))
-                buffer.insertCharacter(charData)
-            }
+
+            pendingChar = ch
+            pendingWidth = chWidth
         }
-        updateRange (buffer.y)
-        readingBuffer.done ()
+
+        flushPending()
+        updateRange(buffer.y)
+        readingBuffer.done()
     }
     
     // Inserts the specified character with the computed width into the next cell, following
