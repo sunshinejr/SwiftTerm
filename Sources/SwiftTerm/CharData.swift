@@ -369,14 +369,16 @@ public struct CharData: CustomDebugStringConvertible {
 }
 
 /// Represents an image that can be attached to a
+#if os(macOS) || os(iOS) || os(visionOS)
 public class ImageCell {
     let image: TTImage
-    
+
     // cell size
     var width: Int?
     var height: Int?
-    
+
     public init(_ image: TTImage) {
         self.image = image
     }
 }
+#endif
